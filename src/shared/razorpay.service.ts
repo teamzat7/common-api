@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 export interface RazorpayOrder {
@@ -30,6 +30,7 @@ export interface RazorpayPayment {
 
 @Injectable()
 export class RazorpayService {
+  private readonly logger = new Logger(RazorpayService.name);
   private readonly apiBase = 'https://api.razorpay.com/v1';
 
   async createOrder(input: {
@@ -97,10 +98,28 @@ export class RazorpayService {
 
     if (!response.ok) {
       const body = await response.text();
-      throw new BadRequestException(`Razorpay request failed with HTTP ${response.status}: ${body}`);
+      const parsedBody = this.parseErrorBody(body);
+      this.logger.error(
+        `Razorpay request failed with HTTP ${response.status}: ${body}`,
+        undefined,
+        RazorpayService.name
+      );
+      throw new BadRequestException({
+        message: 'Razorpay request failed',
+        razorpayStatus: response.status,
+        razorpayError: parsedBody
+      });
     }
 
     return (await response.json()) as T;
+  }
+
+  private parseErrorBody(body: string): unknown {
+    try {
+      return JSON.parse(body) as unknown;
+    } catch {
+      return body;
+    }
   }
 
   private requiredEnv(name: string): string {

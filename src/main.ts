@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { json } from 'express';
+import { json, urlencoded } from 'express';
 
 import { AppModule } from './app.module';
 
@@ -12,13 +12,6 @@ async function bootstrap(): Promise<void> {
     .filter(Boolean);
 
   app.setGlobalPrefix('api');
-  app.enableCors({
-    origin: allowedOrigins.length ? allowedOrigins : true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-razorpay-signature'],
-    credentials: false
-  });
-
   app.use(
     '/api/payments/webhook',
     json({
@@ -27,6 +20,14 @@ async function bootstrap(): Promise<void> {
       }
     })
   );
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
+  app.enableCors({
+    origin: allowedOrigins.length ? allowedOrigins : true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-razorpay-signature'],
+    credentials: false
+  });
 
   await app.listen(Number(process.env['PORT'] ?? 3000));
 }
