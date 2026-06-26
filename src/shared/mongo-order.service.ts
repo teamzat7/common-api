@@ -160,6 +160,10 @@ export class MongoOrderService implements OnModuleDestroy {
     return (await this.registrations()).countDocuments();
   }
 
+  async ping(): Promise<void> {
+    await (await this.db()).command({ ping: 1 });
+  }
+
   async saveSponsor(payload: Record<string, unknown>): Promise<void> {
     await (await this.sponsors()).insertOne({
       ...payload,
