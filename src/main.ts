@@ -6,10 +6,14 @@ import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { rawBody: true });
-  const allowedOrigins = (process.env['ALLOWED_ORIGINS'] ?? '')
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean);
+  const defaultAllowedOrigins = ['https://vizhinjamsummit.com', 'https://www.vizhinjamsummit.com'];
+  const allowedOrigins = Array.from(new Set([
+    ...defaultAllowedOrigins,
+    ...(process.env['ALLOWED_ORIGINS'] ?? '')
+      .split(',')
+      .map(origin => origin.trim())
+      .filter(Boolean)
+  ]));
 
   app.setGlobalPrefix('api');
   app.use(
