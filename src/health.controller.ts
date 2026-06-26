@@ -19,10 +19,9 @@ export class HealthController {
   } {
     const checks = {
       publicApiBaseUrl: this.hasEnv('PUBLIC_API_BASE_URL'),
+      mongoDbUri: this.hasEnv('MONGODB_URI'),
       razorpayKeyId: this.hasEnv('RAZORPAY_KEY_ID'),
-      razorpayKeySecret: this.hasEnv('RAZORPAY_KEY_SECRET'),
-      firebaseProjectId: this.hasEnv('FIREBASE_PROJECT_ID'),
-      firebaseCredentials: this.hasEnv('FIREBASE_SERVICE_ACCOUNT_JSON') || this.hasEnv('GOOGLE_APPLICATION_CREDENTIALS')
+      razorpayKeySecret: this.hasEnv('RAZORPAY_KEY_SECRET')
     };
     const missing = Object.entries(checks)
       .filter(([, ready]) => !ready)

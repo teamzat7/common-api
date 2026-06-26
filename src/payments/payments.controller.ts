@@ -2,14 +2,14 @@ import { BadRequestException, Body, Controller, Get, Headers, Post, Query, Req }
 import { Request } from 'express';
 
 import { CreateCheckoutRequest, PaymentStatus, PaymentStatusResponse, VerifyPaymentRequest } from './payment.types';
-import { FirebaseAdminService } from '../shared/firebase-admin.service';
+import { MongoOrderService } from '../shared/mongo-order.service';
 import { NotificationService } from '../shared/notification.service';
 import { RazorpayPayment, RazorpayService } from '../shared/razorpay.service';
 
 @Controller('payments')
 export class PaymentsController {
   constructor(
-    private readonly firebase: FirebaseAdminService,
+    private readonly orders: MongoOrderService,
     private readonly notifications: NotificationService,
     private readonly razorpay: RazorpayService
   ) {}
@@ -18,7 +18,7 @@ export class PaymentsController {
   async createCheckout(@Body() body: CreateCheckoutRequest): Promise<Record<string, unknown>> {
     this.assertCheckoutRequest(body);
 
-    const order = await this.firebase.ticketOrder(body.orderId);
+    const order = await this.orders.createTicketOrder(body);
     if (Number(order.amount) !== Number(body.amount)) {
       throw new BadRequestException('Amount does not match the saved ticket order');
     }
@@ -29,16 +29,16 @@ export class PaymentsController {
       : await this.razorpay.createOrder({
           amount: body.amount,
           currency: body.currency || 'INR',
-          receipt: body.orderReference,
+          receipt: order.orderReference,
           notes: {
-            orderId: body.orderId,
-            orderReference: body.orderReference,
+            orderId: order.id,
+            orderReference: order.orderReference,
             customerEmail: body.customer.email,
             customerPhone: body.customer.phone
           }
         });
 
-    await this.firebase.attachProviderOrder(body.orderId, providerOrder.id);
+    await this.orders.attachProviderOrder(order.id, providerOrder.id);
 
     return {
       status: this.statusFromRazorpayOrder(providerOrder.status),
@@ -47,7 +47,8 @@ export class PaymentsController {
       razorpayKeyId: this.razorpay.keyId(),
       amount: body.amount,
       currency: body.currency || 'INR',
-      orderReference: body.orderReference,
+      orderId: order.id,
+      orderReference: order.orderReference,
       customer: body.customer,
       prefill: {
         name: body.customer.name,
@@ -84,9 +85,9 @@ export class PaymentsController {
       throw new BadRequestException('Payment does not belong to the Razorpay order');
     }
 
-    const beforeUpdate = await this.firebase.ticketOrder(body.orderId);
+    const beforeUpdate = await this.orders.ticketOrder(body.orderId);
     const status = this.statusFromRazorpayPayment(payment);
-    await this.firebase.markPayment(body.orderId, {
+    await this.orders.markPayment(body.orderId, {
       status,
       providerOrderId: body.providerOrderId,
       providerPaymentId: body.providerPaymentId,
@@ -97,9 +98,9 @@ export class PaymentsController {
       raw: payment
     });
 
-    const response = await this.firebase.status(body.orderId);
+    const response = await this.orders.status(body.orderId);
     if (response.status === 'paid' && beforeUpdate.paymentStatus !== 'paid') {
-      const order = await this.firebase.ticketOrder(body.orderId);
+      const order = await this.orders.ticketOrder(body.orderId);
       await this.notifications.sendPaymentConfirmation(order, response);
     }
 
@@ -116,22 +117,22 @@ export class PaymentsController {
     }
 
     const order = orderId
-      ? await this.firebase.ticketOrder(orderId)
-      : await this.firebase.orderByProviderOrderId(String(providerOrderId));
+      ? await this.orders.ticketOrder(orderId)
+      : await this.orders.orderByProviderOrderId(String(providerOrderId));
 
     if (!order) {
       throw new BadRequestException('Order was not found');
     }
 
     if (order.paymentStatus === 'paid') {
-      return this.firebase.status(order.id);
+      return this.orders.status(order.id);
     }
 
     if (order.providerOrderId) {
       const providerOrder = await this.razorpay.fetchOrder(order.providerOrderId);
       const status = this.statusFromRazorpayOrder(providerOrder.status);
       if (status === 'failed' || status === 'cancelled') {
-        await this.firebase.markPayment(order.id, {
+        await this.orders.markPayment(order.id, {
           status,
           providerOrderId: order.providerOrderId,
           raw: providerOrder
@@ -139,7 +140,7 @@ export class PaymentsController {
       }
     }
 
-    return this.firebase.status(order.id);
+    return this.orders.status(order.id);
   }
 
   @Post('webhook')
@@ -159,13 +160,13 @@ export class PaymentsController {
       return { received: true };
     }
 
-    const order = await this.firebase.orderByProviderOrderId(payment.order_id);
+    const order = await this.orders.orderByProviderOrderId(payment.order_id);
     if (!order) {
       return { received: true };
     }
 
     const status = event.includes('failed') ? 'failed' : this.statusFromRazorpayPayment(payment);
-    await this.firebase.markPayment(order.id, {
+    await this.orders.markPayment(order.id, {
       status,
       providerOrderId: payment.order_id,
       providerPaymentId: payment.id,
@@ -176,7 +177,7 @@ export class PaymentsController {
       raw: body
     });
 
-    const response = await this.firebase.status(order.id);
+    const response = await this.orders.status(order.id);
     if (response.status === 'paid' && order.paymentStatus !== 'paid') {
       await this.notifications.sendPaymentConfirmation({ ...order, id: order.id }, response);
     }
@@ -185,8 +186,8 @@ export class PaymentsController {
   }
 
   private assertCheckoutRequest(body: CreateCheckoutRequest): void {
-    if (!body?.orderId || !body.orderReference || !body.amount || !body.customer?.email || !body.customer?.phone) {
-      throw new BadRequestException('orderId, orderReference, amount, customer.email and customer.phone are required');
+    if (!body?.amount || !body.customer?.email || !body.customer?.phone || !body.ticket?.name || !body.ticket.price) {
+      throw new BadRequestException('amount, customer.email, customer.phone, ticket.name and ticket.price are required');
     }
 
     if (Number(body.amount) <= 0) {

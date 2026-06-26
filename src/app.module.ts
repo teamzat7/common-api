@@ -1,16 +1,19 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { DashboardController } from './dashboard/dashboard.controller';
 import { EmailsController } from './emails/emails.controller';
 import { HealthController } from './health.controller';
+import { LogsController } from './logs/logs.controller';
 import { PaymentsController } from './payments/payments.controller';
-import { FirebaseAdminService } from './shared/firebase-admin.service';
+import { MongoOrderService } from './shared/mongo-order.service';
 import { NotificationService } from './shared/notification.service';
 import { RazorpayService } from './shared/razorpay.service';
+import { SponsorsController } from './sponsors/sponsors.controller';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
-  controllers: [HealthController, PaymentsController, EmailsController],
-  providers: [FirebaseAdminService, NotificationService, RazorpayService]
+  controllers: [HealthController, PaymentsController, EmailsController, SponsorsController, LogsController, DashboardController],
+  providers: [MongoOrderService, NotificationService, RazorpayService]
 })
 export class AppModule {}

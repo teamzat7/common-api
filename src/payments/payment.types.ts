@@ -13,8 +13,8 @@ export interface CheckoutTicket {
 }
 
 export interface CreateCheckoutRequest {
-  orderId: string;
-  orderReference: string;
+  orderId?: string;
+  orderReference?: string;
   amount: number;
   currency: string;
   description: string;
@@ -22,6 +22,18 @@ export interface CreateCheckoutRequest {
   cancelUrl?: string;
   customer: CheckoutCustomer;
   ticket: CheckoutTicket;
+  registration?: {
+    name: string;
+    email: string;
+    whatsappNumber?: string;
+    mobileNumber?: string;
+    company?: string;
+    designation?: string;
+    ticketType?: string;
+    delegates?: number;
+    interest?: string;
+    message?: string;
+  };
 }
 
 export interface VerifyPaymentRequest {

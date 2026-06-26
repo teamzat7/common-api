@@ -19,7 +19,19 @@ npm run build
 npm run start
 ```
 
-Set Razorpay keys and Firebase Admin credentials in `.env`.
+Set MongoDB, Razorpay, CORS, and email credentials in `.env`.
+
+Required production variables:
+
+```bash
+MONGODB_URI=mongodb+srv://USER:PASSWORD@HOST/
+MONGODB_DB=vizhinjam
+PUBLIC_API_BASE_URL=https://YOUR_API_DOMAIN/api
+ALLOWED_ORIGINS=https://vizhinjamsummit.com,https://www.vizhinjamsummit.com
+RAZORPAY_KEY_ID=rzp_live_xxx
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+```
 
 ## UI Config
 
